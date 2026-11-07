@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>90天刷脂打卡</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif}
+body{background:#f7f7f7;color:#333;padding-bottom:84px}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;border-top:1px solid #ddd;z-index:99}
+nav button{flex:1;padding:14px 0;border:none;background:none;font-size:14px;color:#666;-webkit-tap-highlight-color:transparent !important;}
+nav button.active{color:#e64946;font-weight:bold}
+.page{display:none;padding:16px}
+.page.active{display:block}
+.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px}
+.title{font-size:18px;font-weight:bold;margin-bottom:10px}
+.sub{color:#777;font-size:14px;margin-bottom:8px;line-height:1.5}
+.check-item{display:flex;align-items:center;gap:10px;padding:8px 0}
+input[type="checkbox"]{width:20px;height:20px}
+input,textarea{width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:16px;margin:6px 0;background:#fff}
+.btn{background:#e64946;color:#fff;border:none;border-radius:10px;padding:12px;width:100%;font-size:16px;margin:8px 0;-webkit-tap-highlight-color:transparent !important;}
+.btn:active{opacity:0.85}
+.btn-gray{background:#999}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.grid-item{height:44px;background:#eee;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;-webkit-tap-highlight-color:transparent !important;}
+.grid-item.done{background:#ffbaba}
+.grid-item.current{border:2px solid #e64946}
+.action-row{display:flex;gap:8px}
+.action-row button{flex:1;padding:10px;border-radius:8px;border:1px solid #ddd;background:#fff;-webkit-tap-highlight-color:transparent !important;}
+.copy-btn{background:#4285f4;color:white;border:none}
+.warn-text{color:#d93025;font-size:13px;margin-top:4px}
+</style>
+</head>
+<body>
+
+<div id="page-today" class="page active">
+  <div class="card">
+    <div class="title">今日：第 <span id="dayNo">1</span> 天</div>
+    <div class="sub" id="dayInfo"></div>
+    <div class="sub" id="trainText"></div>
+  </div>
+  <div class="card">
+    <div class="title">✅ 打卡项</div>
+    <div class="check-item"><input type="checkbox" id="c1"><label>热身完成</label></div>
+    <div class="check-item"><input type="checkbox" id="c2"><label>力量训练</label></div>
+    <div class="check-item"><input type="checkbox" id="c3"><label>有氧/HIIT</label></div>
+    <div class="check-item"><input type="checkbox" id="c4"><label>拉伸</label></div>
+    <div class="check-item"><input type="checkbox" id="c5"><label>饮水≥2000ml</label></div>
+    <div class="check-item"><input type="checkbox" id="c6"><label>早餐合规</label></div>
+    <div class="check-item"><input type="checkbox" id="c7"><label>午餐合规</label></div>
+    <div class="check-item"><input type="checkbox" id="c8"><label>晚餐合规</label></div>
+    <div class="check-item"><input type="checkbox" id="c9"><label>无额外零食</label></div>
+    <button class="btn" onclick="saveDay()">保存本日打卡</button>
+    <button class="btn btn-gray" onclick="resetToday()">一键清空本日勾选</button>
+  </div>
+  <div class="card">
+    <div class="title">📝 体重 & 备注</div>
+    <input id="weight" placeholder="晨起体重（斤）">
+    <textarea id="note" rows="3" placeholder="备注：姨妈、酸痛、乏力等"></textarea>
+  </div>
+  <div class="card">
+    <div class="title">🍱 今日餐单</div>
+    <div id="foodText"></div>
+  </div>
+</div>
+
+<div id="page-wall" class="page">
+  <div class="card">
+    <div class="title">打卡墙（点击格子查看/修改当日记录）</div>
+    <div class="grid" id="wall"></div>
+  </div>
+</div>
+
+<div id="page-progress" class="page">
+  <div class="card">
+    <div class="title">📊 进度统计</div>
+    <div>已记录天数：<span id="statOpen">0</span></div>
+    <div>全部打卡完成天数：<span id="statFull">0</span></div>
+    <div>平均完成率：<span id="statRate">0</span>%</div>
+  </div>
+  <div class="card">
+    <div class="title">⚙️ 设置 & 备份（重要！清缓存前先导出）</div>
+    <div class="sub">起始日期（D1是哪一天）</div>
+    <input id="startDate" type="date">
+    <button class="btn" onclick="resetStart()">更新起始日</button>
+    <div class="action-row">
+      <button onclick="exportData()">导出备份</button>
+      <button onclick="importData()">导入备份</button>
+    </div>
+    <textarea id="backupArea" rows="4" placeholder="粘贴备份文本，点导入恢复"></textarea>
+  </div>
+</div>
+
+<div id="page-action" class="page">
+  <div class="card">
+    <div class="title">🎬 动作库｜复制关键词去抖音/小红书搜索</div>
+    <div id="actionList"></div>
+  </div>
+</div>
+
+<nav>
+  <button data-page="page-today" class="active">今日</button>
+  <button data-page="page-wall">打卡墙</button>
+  <button data-page="page-progress">进度</button>
+  <button data-page="page-action">动作库</button>
+</nav>
+
+<script>
+const plan = [
+  {d:1,w:"周一",train:"全身哑铃力量3轮｜哑铃杯式深蹲12，单臂俯身划船每侧12，地板推胸12，罗马尼亚硬拉12，平板支撑40s｜快走30min",food:"标准1300-1400大卡"},
+  {d:2,w:"周二",train:"壶铃臀腿专项3轮｜壶铃摇摆15，壶铃箭步蹲每侧10，负重臀桥15，侧弓步每侧10｜低冲击踏步25min",food:"标准1300-1400大卡"},
+  {d:3,w:"周三",train:"哑铃上肢+核心3轮｜肩推12，弯举12，颈后臂屈伸12，负重死虫每侧10｜HIIT 20s/40s ×8组",food:"标准1300-1400大卡"},
+  {d:4,w:"周四",train:"壶铃全身循环3轮｜高脚杯深蹲12，单臂划船每侧12，单臂推举每侧10，农夫行走40s｜快走30min",food:"标准1300-1400大卡"},
+  {d:5,w:"周五",train:"哑铃臀腿+核心3轮｜相扑深蹲12，保加利亚分腿蹲每侧10，臀推15，侧平板每侧30s｜HIIT 20s/40s ×8组",food:"标准1300-1400大卡"},
+  {d:6,w:"周六",train:"混合循环3轮｜哑铃罗硬拉→壶铃摇摆→地板飞鸟→壶铃臀桥｜快走30min",food:"标准1300-1400大卡"},
+  {d:7,w:"周日",train:"轻休｜散步40-60min，不负重无HIIT",food:"热量+100~150大卡"},
+  {d:8,w:"周一",train:"全身哑铃力量3轮｜快走30min",food:"标准1300-1400大卡"},
+  {d:9,w:"周二",train:"壶铃臀腿专项3轮｜低冲击踏步25min",food:"标准1300-1400大卡"},
+  {d:10,w:"周三",train:"哑铃上肢+核心3轮｜HIIT8组",food:"标准1300-1400大卡"},
+  {d:11,w:"周四",train:"壶铃全身循环3轮｜快走30min",food:"标准1300-1400大卡"},
+  {d:12,w:"周五",train:"哑铃臀腿+核心3轮｜HIIT8组",food:"标准1300-1400大卡"},
+  {d:13,w:"周六",train:"混合循环3轮｜快走30min",food:"标准1300-1400大卡"},
+  {d:14,w:"周日",train:"轻休｜散步40-60min",food:"热量+100~150大卡"},
+  {d:15,w:"周一",train:"全身哑铃力量3轮｜快走30min",food:"标准1300-1400大卡"},
+  {d:16,w:"周二",train:"壶铃臀腿专项3轮｜低冲击踏步25min",food:"标准1300-1400大卡"},
+  {d:17,w:"周三",train:"哑铃上肢+核心3轮｜HIIT8组",food:"标准1300-1400大卡"},
+  {d:18,w:"周四",train:"壶铃全身循环3轮｜快走30min",food:"标准1300-1400大卡"},
+  {d:19,w:"周五",train:"哑铃臀腿+核心3轮｜HIIT8组",food:"标准1300-1400大卡"},
+  {d:20,w:"周六",train:"混合循环3轮｜快走30min",food:"标准1300-1400大卡"},
+  {d:21,w:"周日",train:"轻休｜散步40-60min",food:"热量+100~150大卡"},
+  {d:22,w:"周一",train:"全身哑铃力量3轮｜快走30min",food:"标准1300-1400大卡"},
+  {d:23,w:"周二",train:"壶铃臀腿专项3轮｜低冲击踏步25min",food:"标准1300-1400大卡"},
+  {d:24,w:"周三",train:"哑铃上肢+核心3轮｜HIIT8组",food:"标准1300-1400大卡"},
+  {d:25,w:"周四",train:"壶铃全身循环3轮｜快走30min",food:"标准1300-1400大卡"},
+  {d:26,w:"周五",train:"哑铃臀腿+核心3轮｜HIIT8组",food:"标准1300-1400大卡"},
+  {d:27,w:"周六",train:"混合循环3轮｜快走30min",food:"标准1300-1400大卡"},
+  {d:28,w:"周日",train:"轻休｜散步40-60min",food:"热量+100~150大卡"},
+  {d:29,w:"周一",train:"全身哑铃力量3轮｜快走30min",food:"标准1300-1400大卡"},
+  {d:30,w:"周二",train:"壶铃臀腿专项3轮｜低冲击踏步25min",food:"标准1300-1400大卡"},
+  {d:31,w:"周三",train:"上肢核心3轮｜次数上调，组休25-30s｜HIIT30s/30s ×10组",food:"标准1300-1400大卡"},
+  {d:32,w:"周四",train:"壶铃循环3轮｜农夫行走50s｜快走40min",food:"标准1300-1400大卡"},
+  {d:33,w:"周五",train:"臀腿核心3轮｜次数上调｜HIIT10组",food:"标准1300-1400大卡"},
+  {d:34,w:"周六",train:"混合循环3轮｜快走40min",food:"标准1300-1400大卡"},
+  {d:35,w:"周日",train:"轻休｜散步40-60min",food:"热量+100~150大卡"},
+  {d:36,w:"周一",train:"全身哑铃3轮｜次数上调｜快走40min",food:"标准1300-1400大卡"},
+  {d:37,w:"周二",train:"壶铃臀腿3轮｜次数上调｜低冲击踏步35min",food:"标准1300-1400大卡"},
+  {d:38,w:"周三",train:"上肢核心3轮｜HIIT10组",food:"标准1300-1400大卡"},
+  {d:39,w:"周四",train:"壶铃循环3轮｜快走40min",food:"标准1300-1400大卡"},
+  {d:40,w:"周五",train:"臀腿核心3轮｜HIIT10组",food:"标准1300-1400大卡"},
+  {d:41,w:"周六",train:"混合循环3轮｜快走40min",food:"标准1300-1400大卡"},
+  {d:42,w:"周日",train:"轻休｜散步40-60min",food:"热量+100~150大卡"},
+  {d:43,w:"周一",train:"全身哑铃3轮｜快走40min",food:"标准1300-1400大卡"},
+  {d:44,w:"周二",train:"壶铃臀腿3轮｜低冲击踏步35min",food:"标准1300-1400大卡"},
+  {d:45,w:"周三",train:"上肢核心3轮｜HIIT10组",food:"标准1300-1400大卡"},
+  {d:46,w:"周四",train:"壶铃循环3轮｜快走40min",food:"标准1300-1400大卡"},
+  {d:47,w:"周五",train:"臀腿核心3轮｜HIIT10组",food:"标准1300-1400大卡"},
+  {d:48,w:"周六",train:"混合循环3轮｜快走40min",food:"标准1300-1400大卡"},
+  {d:49,w:"周日",train:"轻休｜散步40-60min",food:"热量+100~150大卡"},
+  {d:50,w:"周一",train:"全身哑铃3轮｜快走40min",food:"标准1300-1400大卡"},
+  {d:51,w:"周二",train:"壶铃臀腿3轮｜低冲击踏步35min",food:"标准1300-1400大卡"},
+  {d:52,w:"周三",train:"上肢核心3轮｜HIIT10组",food:"标准1300-1400大卡"},
+  {d:53,w:"周四",train:"壶铃循环3轮｜快走40min",food:"标准1300-1400大卡"},
+  {d:54,w:"周五",train:"臀腿核心3轮｜HIIT10组",food:"标准1300-1400大卡"},
+  {d:55,w:"周六",train:"混合循环3轮｜快走40min",food:"标准1300-1400大卡"},
+  {d:56,w:"周日",train:"轻休｜散步40-60min",food:"热量+100~150大卡"},
+  {d:57,w:"周一",train:"全身哑铃3轮｜快走40min",food:"标准1300-1400大卡"},
+  {d:58,w:"周二",train:"壶铃臀腿3轮｜低冲击踏步35min",food:"标准1300-1400大卡"},
+  {d:59,w:"周三",train:"上肢核心3轮｜HIIT10组",food:"标准1300-1400大卡"},
+  {d:60,w:"周四",train:"壶铃循环3轮｜快走40min",food:"标准1300-1400大卡"},
+  {d:61,w:"周五",train:"臀腿核心4轮｜16-18次｜HIIT40s/20s ×10-12组",food:"标准1300-1400大卡"},
+  {d:62,w:"周六",train:"混合循环4轮｜快走35min",food:"标准1300-1400大卡"},
+  {d:63,w:"周日",train:"轻休｜散步40-60min",food:"热量+100~150大卡"},
+  {d:64,w:"周一",train:"全身哑铃4轮｜快走35min",food:"标准1300-1400大卡"},
+  {d:65,w:"周二",train:"壶铃臀腿4轮｜低冲击踏步35min",food:"标准1300-1400大卡"},
+  {d:66,w:"周三",train:"上肢核心4轮｜HIIT10-12组",food:"标准1300-1400大卡"},
+  {d:67,w:"周四",train:"壶铃循环4轮｜加15min壶铃摇摆间歇｜快走45min",food:"标准1300-1400大卡"},
+  {d:68,w:"周五",train:"臀腿核心4轮｜HIIT10-12组",food:"标准1300-1400大卡"},
+  {d:69,w:"周六",train:"混合循环4轮｜快走35min",food:"标准1300-1400大卡"},
+  {d:70,w:"周日",train:"轻休｜散步40-60min",food:"热量+100~150大卡"},
+  {d:71,w:"周一",train:"全身哑铃4轮｜快走35min",food:"标准1300-1400大卡"},
+  {d:72,w:"周二",train:"壶铃臀腿4轮｜低冲击踏步35min",food:"标准1300-1400大卡"},
+  {d:73,w:"周三",train:"上肢核心4轮｜HIIT10-12组",food:"标准1300-1400大卡"},
+  {d:74,w:"周四",train:"壶铃循环4轮｜15min摇摆间歇｜快走45min",food:"标准1300-1400大卡"},
+  {d:75,w:"周五",train:"臀腿核心4轮｜HIIT10-12组",food:"标准1300-1400大卡"},
+  {d:76,w:"周六",train:"混合循环4轮｜快走35min",food:"标准1300-1400大卡"},
+  {d:77,w:"周日",train:"轻休｜散步40-60min",food:"热量+100~150大卡"},
+  {d:78,w:"周一",train:"全身哑铃4轮｜快走35min",food:"标准1300-1400大卡"},
+  {d:79,w:"周二",train:"壶铃臀腿4轮｜低冲击踏步35min",food:"标准1300-1400大卡"},
+  {d:80,w:"周三",train:"上肢核心4轮｜HIIT10-12组",food:"标准1300-1400大卡"},
+  {d:81,w:"周四",train:"壶铃循环4轮｜15min摇摆间歇｜快走45min",food:"标准1300-1400大卡"},
+  {d:82,w:"周五",train:"臀腿核心4轮｜HIIT10-12组",food:"标准1300-1400大卡"},
+  {d:83,w:"周六",train:"混合循环4轮｜快走35min",food:"标准1300-1400大卡"},
+  {d:84,w:"周日",train:"轻休｜散步40-60min",food:"热量+100~150大卡"},
+  {d:85,w:"周一",train:"全身哑铃4轮｜快走35min",food:"标准1300-1400大卡"},
+  {d:86,w:"周二",train:"壶铃臀腿4轮｜低冲击踏步35min",food:"标准1300-1400大卡"},
+  {d:87,w:"周三",train:"上肢核心4轮｜HIIT10-12组",food:"标准1300-1400大卡"},
+  {d:88,w:"周四",train:"壶铃循环4轮｜15min摇摆间歇｜快走45min",food:"标准1300-1400大卡"},
+  {d:89,w:"周五",train:"臀腿核心4轮｜HIIT10-12组",food:"标准1300-1400大卡"},
+  {d:90,w:"周六",train:"混合循环4轮｜快走35min｜收尾称重对比",food:"标准1300-1400大卡"},
+];
+
+const actionList = [
+  {name:"高脚杯深蹲",s:"高脚杯深蹲保姆级教学，新手不塌腰",warn:"不要膝盖内扣、不要弯腰弓背"},
+  {name:"单臂哑铃俯身划船",s:"单臂哑铃俯身划船，扶椅子居家练背",warn:"保持脊柱中立，不要耸肩"},
+  {name:"地板哑铃推胸",s:"地板哑铃推胸，居家躺瑜伽垫练胸",warn:"手肘不要过度外展，保护肩袖"},
+  {name:"哑铃罗马尼亚硬拉",s:"哑铃罗马尼亚硬拉，髋铰链，不腰酸",warn:"⚠️重点：腰背全程挺直，不要弯腰去够哑铃"},
+  {name:"平板支撑",s:"平板支撑标准动作，核心收紧不塌腰",warn:"臀部不要抬太高，也不要塌腰下沉"},
+  {name:"壶铃摇摆",s:"壶铃摇摆标准教学，靠臀部发力不伤腰",warn:"⚠️重点：靠髋部顶出去，不是弯腰甩壶铃"},
+  {name:"壶铃箭步蹲",s:"壶铃后撤箭步蹲，居家臀腿",warn:"前膝不要超过脚尖太多，重心稳定"},
+  {name:"壶铃负重臀桥",s:"壶铃负重臀桥，顶峰夹紧臀部",warn:"不要用腰硬顶，发力点是臀部"},
+  {name:"壶铃侧弓步",s:"壶铃侧弓步，改善假胯宽",warn:"下蹲侧膝盖对准脚尖方向"},
+  {name:"坐姿哑铃肩推",s:"坐姿哑铃肩推，避免斜方肌代偿",warn:"沉肩，不要耸肩向上推"},
+  {name:"哑铃弯举",s:"哑铃二头弯举，大臂贴紧身体",warn:"大臂固定不动，不要甩身体借力"},
+  {name:"哑铃颈后臂屈伸",s:"哑铃颈后臂屈伸，消除拜拜肉",warn:"手肘贴近耳朵，不要向外打开"},
+  {name:"负重死虫",s:"负重死虫式，稳住腰椎不塌腰",warn:"下背全程贴紧地面，不要拱腰"},
+  {name:"登山跑",s:"登山跑标准，核心收紧",warn:"骨盆稳定，不要塌腰撅屁股"},
+  {name:"哑铃简化高翻",s:"哑铃高翻简化版新手",warn:"不要猛甩手腕，循序渐进"},
+  {name:"开合跳",s:"标准开合跳，膝盖微屈缓冲",warn:"落地轻一点，减少膝盖冲击"},
+  {name:"壶铃单臂划船",s:"壶铃单臂俯身划船，沉肩不耸肩",warn:"脊柱平直，不要扭转腰部"},
+  {name:"壶铃单臂推举",s:"壶铃单臂军事推举，肩核心一起练",warn:"腰部不要过度顶腰代偿"},
+  {name:"壶铃农夫行走",s:"壶铃农夫行走，核心绷紧小步走",warn:"收腹沉肩，不要含胸驼背"},
+  {name:"哑铃相扑深蹲",s:"哑铃相扑深蹲，宽站距练臀内侧",warn:"膝盖跟随脚尖方向"},
+  {name:"保加利亚分腿蹲",s:"哑铃保加利亚分腿蹲，椅子版居家",warn:"⚠️重点：前膝不要内扣，重心不要前倾压膝盖"},
+  {name:"哑铃臀推",s:"居家哑铃臀推，肩胛骨靠沙发",warn:"顶峰夹紧臀部，不要靠腰部发力"},
+  {name:"侧平板",s:"侧平板支撑标准，练侧腹",warn:"身体一条直线，不要塌腰下坠"},
+  {name:"地板哑铃飞鸟",s:"地板哑铃飞鸟，躺垫练胸",warn:"下放幅度不要过大，防止肩拉伤"},
+  {name:"低冲击踏步",s:"低冲击踏步，无跳跃有氧",warn:"保持稳定，膝盖柔和发力"},
+  {name:"全身臀腿肩背拉伸",s:"臀腿肩背全身拉伸5分钟",warn:"拉伸有酸胀感即可，不要剧痛拉扯"},
+];
+
+let store = {};
+let startDay = "2026-11-09";
+let currentViewDay = null;
+try{
+  const rawStore = localStorage.getItem("fatData");
+  if(rawStore) store = JSON.parse(rawStore);
+  const rawStart = localStorage.getItem("startDay");
+  if(rawStart) startDay = rawStart;
+}catch(e){
+  console.log("localStorage读取异常，初始化空数据");
+}
+
+document.querySelectorAll("nav button").forEach(btn=>{
+  btn.onclick = ()=>{
+    document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+    document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+    document.getElementById(btn.dataset.page).classList.add("active");
+    btn.classList.add("active");
+    if(btn.dataset.page==="page-wall") renderWall();
+    if(btn.dataset.page==="page-action") renderAction();
+    if(btn.dataset.page==="page-progress") renderStat();
+  }
+})
+
+function getTodayDayNo(){
+  const [sy,sm,sd] = startDay.split("-").map(Number);
+  const start = new Date(sy, sm-1, sd);
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  const today = new Date(y,m,d);
+  if(today < start) return 1;
+  let diff = 0;
+  let temp = new Date(start);
+  while(temp < today){
+    temp.setDate(temp.getDate()+1);
+    diff++;
+  }
+  const dayNo = diff + 1;
+  return dayNo > 90 ? 90 : dayNo;
+}
+
+function loadDay(dayNo){
+  currentViewDay = dayNo;
+  const p = plan[dayNo-1];
+  document.getElementById("dayNo").innerText = dayNo;
+  document.getElementById("dayInfo").innerText = p.w;
+  document.getElementById("trainText").innerText = p.train;
+  document.getElementById("foodText").innerText = p.food;
+
+  const realToday = getTodayDayNo();
+  resetToday();
+  if(dayNo !== realToday && store[dayNo]){
+    const rec = store[dayNo];
+    document.getElementById("c1").checked = rec.c1 ?? false;
+    document.getElementById("c2").checked = rec.c2 ?? false;
+    document.getElementById("c3").checked = rec.c3 ?? false;
+    document.getElementById("c4").checked = rec.c4 ?? false;
+    document.getElementById("c5").checked = rec.c5 ?? false;
+    document.getElementById("c6").checked = rec.c6 ?? false;
+    document.getElementById("c7").checked = rec.c7 ?? false;
+    document.getElementById("c8").checked = rec.c8 ?? false;
+    document.getElementById("c9").checked = rec.c9 ?? false;
+    document.getElementById("weight").value = rec.wt || "";
+    document.getElementById("note").value = rec.note || "";
+  }
+}
+
+function resetToday(){
+  for(let i=1;i<=9;i++) document.getElementById("c"+i).checked = false;
+  document.getElementById("weight").value = "";
+  document.getElementById("note").value = "";
+}
+
+function saveDay(){
+  const d = currentViewDay;
+  store[d] = {
+    c1:document.getElementById("c1").checked,
+    c2:document.getElementById("c2").checked,
+    c3:document.getElementById("c3").checked,
+    c4:document.getElementById("c4").checked,
+    c5:document.getElementById("c5").checked,
+    c6:document.getElementById("c6").checked,
+    c7:document.getElementById("c7").checked,
+    c8:document.getElementById("c8").checked,
+    c9:document.getElementById("c9").checked,
+    wt:document.getElementById("weight").value.trim(),
+    note:document.getElementById("note").value.trim()
+  };
+  try{
+    localStorage.setItem("fatData",JSON.stringify(store));
+  }catch(e){
+    alert("⚠️存储失败！存储空间已满，先导出备份再清理");
+    return;
+  }
+  alert("✅ 第"+d+"天打卡保存成功");
+  renderWall();
+  renderStat();
+}
+
+function renderWall(){
+  const wrap = document.getElementById("wall");
+  wrap.innerHTML = "";
+  const todayD = getTodayDayNo();
+  for(let i=1;i<=90;i++){
+    const div = document.createElement("div");
+    div.className = "grid-item";
+    div.innerText = i;
+    if(i === todayD) div.classList.add("current");
+    if(store[i]){
+      const r = store[i];
+      const total = [r.c1,r.c2,r.c3,r.c4,r.c5,r.c6,r.c7,r.c8,r.c9].filter(x=>x===true).length;
+      if(total===9) div.classList.add("done");
+    }
+    div.onclick = ()=>{
+      loadDay(i);
+      document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+      document.getElementById("page-today").classList.add("active");
+      document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+      document.querySelector('nav button[data-page="page-today"]').classList.add("active");
+    }
+    wrap.appendChild(div);
+  }
+}
+
+function renderStat(){
+  document.getElementById("startDate").value = startDay;
+  let open = 0,full=0,sum=0;
+  for(let i=1;i<=90;i++){
+    if(store[i]){
+      open++;
+      const r = store[i];
+      const cnt = [r.c1,r.c2,r.c3,r.c4,r.c5,r.c6,r.c7,r.c8,r.c9].filter(x=>x===true).length;
+      sum += cnt;
+      if(cnt===9) full++;
+    }
+  }
+  const rate = open>0 ? Math.round((sum/(open*9))*100) : 0;
+  document.getElementById("statOpen").innerText = open;
+  document.getElementById("statFull").innerText = full;
+  document.getElementById("statRate").innerText = rate;
+}
+
+function resetStart(){
+  const val = document.getElementById("startDate").value;
+  if(!val){
+    alert("❌ 请选择起始日期");
+    return;
+  }
+  startDay = val;
+  try{
+    localStorage.setItem("startDay",startDay);
+  }catch(e){
+    alert("⚠️存储失败");
+    return;
+  }
+  alert("✅ 起始日期更新成功");
+  renderWall();
+  loadDay(getTodayDayNo());
+}
+
+function renderAction(){
+  const wrap = document.getElementById("actionList");
+  wrap.innerHTML = "";
+  actionList.forEach(ac=>{
+    const row = document.createElement("div");
+    row.style="padding:10px 0;border-bottom:1px solid #eee";
+    row.innerHTML = `
+      <div style="font-weight:bold">${ac.name}</div>
+      <div style="color:#666;font-size:13px;margin:3px 0">搜索词：${ac.s}</div>
+      <div class="warn-text">⚠️ 关键红线：${ac.warn}</div>
+      <button onclick="copyText('${ac.s}')" class="copy-btn" style="margin-top:6px;padding:5px 8px;font-size:12px">复制搜索词</button>
+    `;
+    wrap.appendChild(row);
+  })
+}
+
+function copyText(txt){
+  prompt("👉 手动复制下面搜索词：",txt);
+}
+
+function exportData(){
+  const backup = JSON.stringify({store,startDay},null,2);
+  document.getElementById("backupArea").value = backup;
+  prompt("👉 复制备份文本保存到备忘录：",backup);
+}
+function importData(){
+  try{
+    const raw = document.getElementById("backupArea").value.trim();
+    if(!raw){
+      alert("❌ 备份内容为空");
+      return;
+    }
+    const data = JSON.parse(raw);
+    if(!data.store || !data.startDay){
+      alert("❌ 备份格式不对");
+      return;
+    }
+    store = data.store;
+    startDay = data.startDay;
+    localStorage.setItem("fatData",JSON.stringify(store));
+    localStorage.setItem("startDay",startDay);
+    alert("✅ 导入备份成功！");
+    renderWall();renderStat();loadDay(getTodayDayNo());
+  }catch(e){
+    alert("❌ 导入失败，文本损坏或者不是这份打卡表的备份");
+  }
+}
+
+try{
+  loadDay(getTodayDayNo());
+  renderWall();
+  renderStat();
+}catch(err){
+  alert("页面初始化异常："+err.message+"\n清除Safari缓存重试！");
+  console.error(err);
+}
+</script>
+</body>
+</html>
